@@ -1,0 +1,59 @@
+// 添加依赖
+// 在 Cargo.toml 中添加以下内容
+/*
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = { version = "0.18", features = ["native-tls"] }
+serde_json = "1.0"
+futures-util = "0.3"
+*/
+
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
+use futures_util::{StreamExt, SinkExt};
+use serde_json::json;
+
+#[tokio::main]
+async fn main() {
+    // OKX WebSocket API 地址（公共频道）
+    let url = "wss://wspap.okx.com:8443/ws/v5/public";
+
+    // 建立 WebSocket 连接
+    let (mut ws_stream, _) = connect_async(url).await.expect("Failed to connect to OKX");
+
+    println!("Connected to OKX WebSocket!");
+
+    // 订阅 BTC-USDT 的 ticker 数据
+    let subscribe_msg = json!({
+        "op": "subscribe",
+        "args": [
+            {
+                "channel": "tickers",
+                "instId": "BTC-USDT"
+            }
+        ]
+    });
+
+    // 发送订阅消息
+    ws_stream.send(Message::Text(subscribe_msg.to_string())).await.expect("Failed to send subscribe message");
+    println!("Subscribed to BTC-USDT ticker!");
+
+    // 监听 WebSocket 消息
+    while let Some(msg) = ws_stream.next().await {
+        match msg {
+            Ok(Message::Text(text)) => {
+                println!("Received: {}", text);
+            }
+            Ok(Message::Ping(_)) => {
+                // 处理 Ping 消息，回复 Pong
+                ws_stream.send(Message::Pong(vec![])).await.expect("Failed to send Pong");
+            }
+            Ok(other) => {
+                println!("Other message: {:?}", other);
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+                break;
+            }
+        }
+    }
+}
