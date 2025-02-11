@@ -78,3 +78,9 @@ async fn main() {
         } => {}
     }
 }
+
+
+// 运行代码
+fn hello(){
+    println!("Hello, world!");
+}
